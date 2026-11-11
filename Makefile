@@ -2,7 +2,7 @@
 #
 # Usage:
 # 	make -> build test_file
-#       make run -> build and run the main application
+# 	make run -> build and run the main application
 #	make test -> build and run the tests
 # 	make clean -> delete compiled files # 		      (keeps data/ folder)
 
