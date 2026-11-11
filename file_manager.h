@@ -4,6 +4,12 @@
 #include <stddef.h>
 #include <time.h>
 
+// FILE NAMES
+
+#define FM_FILE_STUDENTS "students.txt"
+#define FM_FILE_GRADES "grades.txt"
+#define FM_FILE_AUDIT "audit.txt"
+#define FM_FILE_BACKUP "backup.txt"
 
 // SETTINGS
 

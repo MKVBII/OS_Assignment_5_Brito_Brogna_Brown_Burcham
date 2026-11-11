@@ -200,19 +200,19 @@ int fm_init(void) {
 int fm_reset(void) {
   int rc = fm_init();
   if (rc != FM_OK) return rc;
-  rc = fm_write("students.txt", "S101,Ana,CSC3320\n""S102,Ben,CSC3320\n");
+  rc = fm_write(FM_FILE_STUDENTS, "S101,Ana,CSC3320\n""S102,Ben,CSC3320\n");
   if (rc != FM_OK) return rc;
-  rc = fm_write("grades.txt", "S101,Assignment4,88\n""S102,Assignment4,91\n");
+  rc = fm_write(FM_FILE_GRADES, "S101,Assignment4,88\n""S102,Assignment4,91\n");
   if (rc != FM_OK) return rc;
-  rc = fm_write("audit.txt", "2026-11-04,Project initialized\n");
+  rc = fm_write(FM_FILE_AUDIT, "2026-11-04,Project initialized\n");
   if (rc != FM_OK) return rc;
-  const char *files[] = {"students.txt", "grades.txt", "audit.txt", "backup.txt"};
+  const char *files[] = {FM_FILE_STUDENTS, FM_FILE_GRADES, FM_FILE_AUDIT, FM_FILE_BACKUP};
   for (int i = 0; i < 4; i++) {
     fm_discard(files[i]);
   }
   
   char path[FM_MAX_PATH];
-  build_path("backup.txt", NULL, path, sizeof path);
+  build_path(FM_FILE_BACKUP, NULL, path, sizeof path);
   remove(path);
   return FM_OK; 
 }
@@ -408,7 +408,7 @@ int fm_find_record(const char *name, const char *id, char *out, size_t outsize) 
 int fm_count_students(int *count) {
   if (count == NULL) return FM_ERR_BAD_ARG;
   char path[FM_MAX_PATH];
-  build_path("students.txt", NULL, path, sizeof path);
+  build_path(FM_FILE_STUDENTS, NULL, path, sizeof path);
   FILE *f = fopen(path, "r");
   if (f == NULL) return errno_to_fm();
   char line[FM_MAX_LINE + 2];
@@ -426,7 +426,7 @@ int fm_count_students(int *count) {
 int fm_grade_stats(int *count, double *mean, int *min, int *max) {
   if (!count || !mean || !min || !max) return FM_ERR_BAD_ARG;
   char path[FM_MAX_PATH];
-  build_path("grades.txt", NULL, path, sizeof path);
+  build_path(FM_FILE_GRADES, NULL, path, sizeof path);
   FILE *f = fopen(path, "r");
   if (f == NULL) return errno_to_fm();
   
