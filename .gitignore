@@ -1,0 +1,4 @@
+*.o
+/data
+test_file
+main

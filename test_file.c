@@ -46,10 +46,10 @@ int main(void) {
   remove(FM_DATA_DIR "/notes.txt");
   
   // section 3.1
-  CHECK(file_equals("students.txt", "S101,Ana,CSC3320\nS102,Ben,CSC3320\n"), "students.txt has starting content");
+  CHECK(file_equals(FM_FILE_STUDENTS, "S101,Ana,CSC3320\nS102,Ben,CSC3320\n"), "students.txt has starting content");
   
   // section 3.1
-  CHECK(file_equals("grades.txt", "S101,Assignment4,88\nS102,Assignment4,91\n"),"grades.txt has starting content");
+  CHECK(file_equals(FM_FILE_GRADES, "S101,Assignment4,88\nS102,Assignment4,91\n"),"grades.txt has starting content");
   
   // expected answer for T3
   CHECK(fm_count_students(&n) == FM_OK && n == 2, "T3: Total students = 2");
@@ -70,93 +70,93 @@ int main(void) {
   section ("Read and Find");
   
   // basic read works
-  CHECK(fm_read_all("students.txt", buf, sizeof buf) == FM_OK, "read whole file");
+  CHECK(fm_read_all(FM_FILE_STUDENTS, buf, sizeof buf) == FM_OK, "read whole file");
   
   // finds exact record
-  CHECK(fm_find_record("students.txt", "S101", buf, sizeof buf) == FM_OK && strcmp(buf, "S101,Ana,CSC3320") == 0, "T1: find S101 in students.txt");
+  CHECK(fm_find_record(FM_FILE_STUDENTS, "S101", buf, sizeof buf) == FM_OK && strcmp(buf, "S101,Ana,CSC3320") == 0, "T1: find S101 in students.txt");
   
   // clean error for missing record
-  CHECK(fm_find_record("students.txt", "S999", buf, sizeof buf) == FM_ERR_NO_MATCH, "unkown student ID reports 'record not found'");
+  CHECK(fm_find_record(FM_FILE_STUDENTS, "S999", buf, sizeof buf) == FM_ERR_NO_MATCH, "unkown student ID reports 'record not found'");
   
   // matches the whole first field only
-  CHECK(fm_find_record("students.txt", "S10", buf, sizeof buf) == FM_ERR_NO_MATCH, "partial ID 'S10' does not match 'S101'");
+  CHECK(fm_find_record(FM_FILE_STUDENTS, "S10", buf, sizeof buf) == FM_ERR_NO_MATCH, "partial ID 'S10' does not match 'S101'");
   
   // APPEND
   section("Append");
-  fm_count_lines("grades.txt", &before);
+  fm_count_lines(FM_FILE_GRADES, &before);
   
   // normal append
-  CHECK(fm_append("grades.txt", "S101,Assignment5,95") == FM_OK, "T1: append S101,Assignment5,95");
+  CHECK(fm_append(FM_FILE_GRADES, "S101,Assignment5,95") == FM_OK, "T1: append S101,Assignment5,95");
   
   // lines after appending
-  fm_count_lines("grades.txt", &after);
+  fm_count_lines(FM_FILE_GRADES, &after);
   
   // can't have more than one record
   CHECK(after == before + 1, "append adds exactly one line");
-  CHECK(fm_append("grades.txt", "bad\nline") == FM_ERR_BAD_ARG, "append rejects text containing a newline");
+  CHECK(fm_append(FM_FILE_GRADES, "bad\nline") == FM_ERR_BAD_ARG, "append rejects text containing a newline");
   
   // REPLACE
   section("Replace (update in place)");
   
   // lines before replacing
-  fm_count_lines("grades.txt", &before);
+  fm_count_lines(FM_FILE_GRADES, &before);
   
   // the actual update
-  CHECK(fm_replace_line("grades.txt", "S102,Assignment4,91", "S102,Assignment4,94") == FM_OK, "T2: change S102 grade from 91 to 94");
+  CHECK(fm_replace_line(FM_FILE_GRADES, "S102,Assignment4,91", "S102,Assignment4,94") == FM_OK, "T2: change S102 grade from 91 to 94");
   
   // lines after replacing
-  fm_count_lines("grades.txt", &after);
+  fm_count_lines(FM_FILE_GRADES, &after);
   
   // makes sure no lines were added
   CHECK(after == before, "replace keeps the same number of lines");
   
   // look at the new content
-  fm_read_all("grades.txt", buf, sizeof buf);
+  fm_read_all(FM_FILE_GRADES, buf, sizeof buf);
   
   // make sure the old version was removed
   CHECK(strstr(buf, "S102,Assignment4,91") == NULL, "old grade line is gone");
   
   // snapshot before a failing replace and copy of that snapshot for comparison later
-  fm_read_all("grades.txt", buf, sizeof buf);
+  fm_read_all(FM_FILE_GRADES, buf, sizeof buf);
   char saved[2048];
   strcpy(saved, buf);
   
   // clean error
-  CHECK(fm_replace_line("grades.txt", "S777,Nope,0", "x,y,z") == FM_ERR_NO_MATCH, "replacing a line that isn't there reports no match");
+  CHECK(fm_replace_line(FM_FILE_GRADES, "S777,Nope,0", "x,y,z") == FM_ERR_NO_MATCH, "replacing a line that isn't there reports no match");
   
   // no corruption on failure
-  CHECK(file_equals("grades.txt", saved), "failed replace leaves file unchanged");
+  CHECK(file_equals(FM_FILE_GRADES, saved), "failed replace leaves file unchanged");
   
   // STAGING
   section("Staged changes; discard (abort) and commit");
-  fm_read_all("students.txt", saved, sizeof saved);
+  fm_read_all(FM_FILE_STUDENTS, saved, sizeof saved);
   
   // change prepared in students.txt.tmp
-  CHECK(fm_stage_replace("students.txt", "S102,Ben,CSC3320", "S102,Benjamin,CSC3320") == FM_OK, "stage Ben -> Benjamin");
+  CHECK(fm_stage_replace(FM_FILE_STUDENTS, "S102,Ben,CSC3320", "S102,Benjamin,CSC3320") == FM_OK, "stage Ben -> Benjamin");
   
   // nothing visible yet
-  CHECK(file_equals("students.txt", saved), "real file unchagned while change is only staged");
+  CHECK(file_equals(FM_FILE_STUDENTS, saved), "real file unchagned while change is only staged");
   
   // temp file exists
-  CHECK(fm_has_staged("students.txt") == 1, "staged change is waiting");
+  CHECK(fm_has_staged(FM_FILE_STUDENTS) == 1, "staged change is waiting");
   
   // throw it away
-  CHECK(fm_discard("students.txt") == FM_OK, "discard");
+  CHECK(fm_discard(FM_FILE_STUDENTS) == FM_OK, "discard");
   
   // check the abort
-  CHECK(file_equals("students.txt", saved), "after discard, file is identical");
+  CHECK(file_equals(FM_FILE_STUDENTS, saved), "after discard, file is identical");
   
   // temp file is gone
-  CHECK(fm_has_staged("students.txt") == 0, "no staged change left behind");
+  CHECK(fm_has_staged(FM_FILE_STUDENTS) == 0, "no staged change left behind");
   
   // can't commit with nothing staged
-  CHECK(fm_commit("students.txt") == FM_ERR_NO_STAGED, "commit with nothing staged is refused");
+  CHECK(fm_commit(FM_FILE_STUDENTS) == FM_ERR_NO_STAGED, "commit with nothing staged is refused");
   
   // retry after the abort
-  CHECK(fm_stage_replace("students.txt", "S102,Ben,CSC3320","S102,Benjamin,CSC3320") == FM_OK, "stage Ben -> Benjamin again");
+  CHECK(fm_stage_replace(FM_FILE_STUDENTS, "S102,Ben,CSC3320","S102,Benjamin,CSC3320") == FM_OK, "stage Ben -> Benjamin again");
   
   // make it real
-  CHECK(fm_commit("students.txt") == FM_OK, "commit staged change");
+  CHECK(fm_commit(FM_FILE_STUDENTS) == FM_OK, "commit staged change");
   
   // updated not duplicated
   CHECK(fm_count_students(&n) == FM_OK && n == 2, "student count is still 2 after update");
@@ -165,38 +165,38 @@ int main(void) {
   section("Audit trail and backup");
   
   // audit line 1
-  CHECK(fm_append("audit.txt", "2026-11-04,T1,Grade added for S101") == FM_OK, "T4: audit entry for T1");
+  CHECK(fm_append(FM_FILE_AUDIT, "2026-11-04,T1,Grade added for S101") == FM_OK, "T4: audit entry for T1");
   
   // audit line 2
-  CHECK(fm_append("audit.txt", "2026-11-04,T2,Student record updated for S102") == FM_OK, "T4: audit entry for T2");
+  CHECK(fm_append(FM_FILE_AUDIT, "2026-11-04,T2,Student record updated for S102") == FM_OK, "T4: audit entry for T2");
   
   // buffers for the backup
   char students[1024], grades[1024], backup[2200];
   
   // reads students holding A
-  fm_read_all("students.txt", students, sizeof students);
+  fm_read_all(FM_FILE_STUDENTS, students, sizeof students);
   
   // reads grades holding B
-  fm_read_all("grades.txt", grades, sizeof grades);
+  fm_read_all(FM_FILE_GRADES, grades, sizeof grades);
   
   // combine into one snapshot and write atomically holding D
   snprintf(backup, sizeof backup, "BACKUP - STUDENT RECORDS\n%sBACKUP - GRADES\n%s", students, grades);
-  CHECK(fm_write("backup.txt", backup) == FM_OK, "write backup,txt");
+  CHECK(fm_write(FM_FILE_BACKUP, backup) == FM_OK, "write backup,txt");
   
   // FINAL CONTENTS
   section("Final contents match section 3.4 from assignment description");
   
   // expected students
-  CHECK(file_equals("students.txt", "S101,Ana,CSC3320\n""S102,Benjamin,CSC3320\n"), "students.txt");
+  CHECK(file_equals(FM_FILE_STUDENTS, "S101,Ana,CSC3320\n""S102,Benjamin,CSC3320\n"), FM_FILE_STUDENTS);
   
   // expected grades
-  CHECK(file_equals("grades.txt", "S101,Assignment4,88\n""S102,Assignment4,94\n""S101,Assignment5,95\n"), "grades.txt");
+  CHECK(file_equals(FM_FILE_GRADES, "S101,Assignment4,88\n""S102,Assignment4,94\n""S101,Assignment5,95\n"), FM_FILE_GRADES);
   
   // expected audit
-  CHECK(file_equals("audit.txt", "2026-11-04,Project initialized\n""2026-11-04,T1,Grade added for S101\n""2026-11-04,T2,Student record updated for S102\n"), "audit.txt");
+  CHECK(file_equals(FM_FILE_AUDIT, "2026-11-04,Project initialized\n""2026-11-04,T1,Grade added for S101\n""2026-11-04,T2,Student record updated for S102\n"), FM_FILE_AUDIT);
   
   // expected backup
-  CHECK(file_equals("backup.txt", "BACKUP - STUDENT RECORDS\n""S101,Ana,CSC3320\n""S102,Benjamin,CSC3320\n""BACKUP - GRADES\n""S101,Assignment4,88\n""S102,Assignment4,94\n""S101,Assignment5,95\n"), "backup.txt");
+  CHECK(file_equals(FM_FILE_BACKUP, "BACKUP - STUDENT RECORDS\n""S101,Ana,CSC3320\n""S102,Benjamin,CSC3320\n""BACKUP - GRADES\n""S101,Assignment4,88\n""S102,Assignment4,94\n""S101,Assignment5,95\n"), FM_FILE_BACKUP);
   
   // stuff for T5
   int count, lo, hi;
@@ -235,14 +235,14 @@ int main(void) {
   
   // deliberately small buffer to demonstrate no buffer overflow
   char tiny_buf[8];
-  CHECK(fm_read_all("grades.txt", tiny_buf, sizeof tiny_buf) == FM_ERR_TOO_BIG, "too smalle buffer reported, not overflowed");
+  CHECK(fm_read_all(FM_FILE_GRADES, tiny_buf, sizeof tiny_buf) == FM_ERR_TOO_BIG, "too smalle buffer reported, not overflowed");
   
   // LISTING AND METADATA
   section("Lsit files with size and last modified time");
   long size; // file size
   
   // metadata works
-  CHECK(fm_stat("grades.txt", &size, NULL) == FM_OK && size > 0, "fm_stat returns a size for grades.txt");
+  CHECK(fm_stat(FM_FILE_GRADES, &size, NULL) == FM_OK && size > 0, "fm_stat returns a size for grades.txt");
   fm_list(); // print the folder listing
   
   // TEST SUMMARY
