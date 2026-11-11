@@ -19,18 +19,16 @@
 #define T6_ID 6
 
 // Execution Modes
-tydedef enum {
+typedef enum {
     // Mode A: T1 (A->B), T2 (B->A) with barrier forcing circular wait
-    MODE_DEADLOACK = 0,
+    MODE_DEADLOCK = 0,
     // Mode B: T1 (A->B). T2 (A->B) ordered locks
-    MODE_PREVENTION = 1,
-    // Mode C: T2 detecs conflicts, discards staged edits, retries A->B
-    MODE_RECOVERY = 2
-} ExecMode
+    MODE_PREVENTION = 1
+} ExecMode;
 
 // Function declarations
 void threads_init(void);
-void run_threads_demo(ExecMode mode);
+void run_thread_demo(ExecMode mode);
 void threads_cleanup(void);
 
 #endif
