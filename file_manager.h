@@ -44,7 +44,7 @@ int fm_replace_line(const char *name, const char *old_line, const char *new_line
 // STAGED UPDATES USED FOR SAFE RECOVERY
 
 int fm_stage_replace(const char *name, const char *old_line, const char *new_line); // prepare a change in <filename>.tmp (real file is untouched)
-int  fm_commit(const char *name); // make the staged change real
+int fm_commit(const char *name); // make the staged change real
 int fm_discard(const char *name); // throw the staged change away
 int fm_has_staged(const char *name); // returns 1 if a staged change is waiting, 0 otherwise
 
