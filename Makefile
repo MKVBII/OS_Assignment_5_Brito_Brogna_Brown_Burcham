@@ -18,7 +18,7 @@ LDLIBS = -lm
 all: main test_file
 
 # Main project entry compilation
-main: main.o threads_locks.o file_manager.o
+main: main.o threads_locks.o file_manager.o lock_manager.o log_stub.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # test program is made from two compiled pieces
@@ -30,7 +30,7 @@ test_file: test_file.o file_manager.o
 main.o: main.c threads_locks.h file_manager.h
 	$(CC) $(CFLAGS) -c main.c
 
-threads_locks.o: threads_locks.c threads_locks.h file_manager.h
+threads_locks.o: threads_locks.c threads_locks.h file_manager.h lock_manager.h
 	$(CC) $(CFLAGS) -c threads_locks.c
 
 lock_manager.o: lock_manager.c lock_manager.h
