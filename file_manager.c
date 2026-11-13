@@ -1,4 +1,4 @@
-#define _POSTIX_C_SOURCE 200809L // allow POSIX functions (i.e. localtime_r and strdup)
+#define _POSIX_C_SOURCE 200809L // allow POSIX functions (i.e. localtime_r and strdup)
 
 #include "file_manager.h" // functions and constants from the header
 #include <stdio.h>

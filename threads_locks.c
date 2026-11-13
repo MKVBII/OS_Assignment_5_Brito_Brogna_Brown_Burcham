@@ -7,15 +7,14 @@
 #include <unistd.h>
 #include "threads_locks.h"
 #include "file_manager.h"
-
-// Mutex Locks
-static pthread_mutex_t locks[NUM_LOCKS];
+#include "lock_manager.h"
 
 // Barrier to easily simulate a deadlock
 static pthread_barrier_t barrier;
 
 // Current Execution Mode
 static ExecMode current_mode;
+
 
 // Audit queue structure
 typedef struct {
@@ -45,18 +44,6 @@ void log_audit_event(const char *entry) {
     pthread_mutex_unlock(&audit_q.mutex);
 }
 
-// --- Thread Lock Wrappers ---
-
-static void acquire_lock(int lock_id) {
-    // Acquire lock
-    pthread_mutex_lock(&locks[lock_id]);
-}
-
-static void release_lock(int lock_id) {
-    // Release Lock
-    pthread_mutex_unlock(&locks[lock_id]);
-}
-
 
 // --- Worker Threads ---
 
@@ -67,18 +54,18 @@ void *worker_T1(void *arg) {
     (void)arg;
     char record[FM_MAX_LINE];
 
-    acquire_lock(LOCK_A);
+    lm_lock(T1_ID, LOCK_A);
     fm_find_record(FM_FILE_STUDENTS, "S101", record, sizeof(record));
 
     if (current_mode == MODE_DEADLOCK) {
         pthread_barrier_wait(&barrier);
     }
 
-    acquire_lock(LOCK_B);
+    lm_lock(T1_ID, LOCK_B);
     fm_append(FM_FILE_GRADES, "S101,Assignment5,95");
 
-    release_lock(LOCK_B);
-    release_lock(LOCK_A);
+    lm_unlock(T1_ID, LOCK_B);
+    lm_unlock(T1_ID, LOCK_A);
 
     // Enqueue event for T4
     log_audit_event("2026-11-04,T1,Grade added for S101");
@@ -94,18 +81,18 @@ void *worker_T2(void *arg) {
 
     if (current_mode == MODE_PREVENTION) {
         // Mode B: Prevention (A then B)
-        acquire_lock(LOCK_A);
-        acquire_lock(LOCK_B);
+        lm_lock(T2_ID, LOCK_A);
+        lm_lock(T2_ID, LOCK_B);
 
         fm_replace_line(FM_FILE_GRADES, "S102,Assignment4,91", "S102,Assignment4,94");
         fm_replace_line(FM_FILE_STUDENTS, "S102,Ben,CSC3320", "S102,Benjamin,CSC3320");
 
-        release_lock(LOCK_B);
-        release_lock(LOCK_A);
+        lm_unlock(T2_ID, LOCK_B);
+        lm_unlock(T2_ID, LOCK_A);
 
     } else {
         // Mode C: Safe Cooperative Recovery
-        acquire_lock(LOCK_B);
+        lm_lock(T2_ID, LOCK_B);
 
         // Stage edit cleanly
         fm_stage_replace(FM_FILE_STUDENTS, "S102,Ben,CSC3320", "S102,Benjamin,CSC3320");
@@ -113,26 +100,24 @@ void *worker_T2(void *arg) {
         // Synchronize with T1 to simulate deadlock (hopefully)
         pthread_barrier_wait(&barrier);
 
-        printf("Should deadlock (ctrl + c to exit)\n");
-        acquire_lock(LOCK_B);
-	// TODO add deadlock detection that allows it to continue
+        int rc = lm_lock(T2_ID, LOCK_A);
+        if (rc != LM_OK) {                                     // NEW: recovery block
+            fm_discard(FM_FILE_STUDENTS);                      // roll back staged change
+            lm_release_all(T2_ID);                             // releases only T2's locks (B)
+            lm_log(T2_ID, "ROLLBACK_COMPLETE", "files", "OK", "staged changes discarded");
+            lm_log(T2_ID, "RETRY_STARTED", "A,B", "OK", "ordered A->B");
 
-        // Rollback staged edits & release owned lock B
-        fm_discard(FM_FILE_STUDENTS);
-        release_lock(LOCK_B);
-
-        // Retry using ordered locks (A then B)
-        struct timespec req = {0, 50000000L}; // 50ms (50,000,000 nanoseconds)
-        nanosleep(&req, NULL);
-
-        acquire_lock(LOCK_A);
-        acquire_lock(LOCK_B);
+            lm_lock(T2_ID, LOCK_A);                            // retry in safe order
+            lm_lock(T2_ID, LOCK_B);
+        } else {
+            fm_discard(FM_FILE_STUDENTS);                      // got A anyway; redo cleanly below
+        }
 
         fm_replace_line(FM_FILE_GRADES, "S102,Assignment4,91", "S102,Assignment4,94");
         fm_replace_line(FM_FILE_STUDENTS, "S102,Ben,CSC3320", "S102,Benjamin,CSC3320");
 
-        release_lock(LOCK_B);
-        release_lock(LOCK_A);
+        lm_unlock(T2_ID, LOCK_B);
+        lm_unlock(T2_ID, LOCK_A);
 
     }
 
@@ -148,9 +133,9 @@ T3: Count valid student records
 void *worker_T3(void *arg) {
     (void)arg;
     int count = 0;
-    acquire_lock(LOCK_A);
+    lm_lock(T3_ID, LOCK_A);
     fm_count_students(&count);
-    release_lock(LOCK_A);
+    lm_unlock(T3_ID, LOCK_A);
     return NULL;
 }
 
@@ -182,9 +167,9 @@ void *worker_T4(void *arg) {
         }
 
         // Acquire Lock C and write committed record to audit.txt
-        acquire_lock(LOCK_C);
+        lm_lock(T4_ID, LOCK_C);
         fm_append(FM_FILE_AUDIT, msg);
-        release_lock(LOCK_C);
+        lm_unlock(T4_ID, LOCK_C);
     }
 
     return NULL;
@@ -197,9 +182,9 @@ void *worker_T5(void *arg) {
     (void)arg;
     int count, min, max;
     double mean;
-    acquire_lock(LOCK_B);
+    lm_lock(T5_ID, LOCK_B);
     fm_grade_stats(&count, &mean, &min, &max);
-    release_lock(LOCK_B);
+    lm_unlock(T5_ID, LOCK_B);
     return NULL;
 }
 
@@ -209,20 +194,21 @@ T6: Create backup snapshot
 void *worker_T6(void *arg) {
     (void)arg;
     char students_buf[1024], grades_buf[1024], backup_buf[2200];
-
-    acquire_lock(LOCK_A);
+    
+    if (lm_lock(T6_ID, LOCK_A) != LM_OK) { lm_release_all(T6_ID); return NULL; }
     fm_read_all(FM_FILE_STUDENTS, students_buf, sizeof(students_buf));
 
-    acquire_lock(LOCK_B);
+    if (lm_lock(T6_ID, LOCK_B) != LM_OK) { lm_release_all(T6_ID); return NULL; }
     fm_read_all(FM_FILE_GRADES, grades_buf, sizeof(grades_buf));
 
-    acquire_lock(LOCK_D);
-    snprintf(backup_buf, sizeof(backup_buf), "BACKUP - STUDENT RECORDS\n%sBACKUP - GRADES\n%s", students_buf, grades_buf);
+    if (lm_lock(T6_ID, LOCK_D) != LM_OK) { lm_release_all(T6_ID); return NULL; }
+    snprintf(backup_buf, sizeof(backup_buf),
+             "BACKUP - STUDENT RECORDS\n%sBACKUP - GRADES\n%s", students_buf, grades_buf);
     fm_write(FM_FILE_BACKUP, backup_buf);
 
-    release_lock(LOCK_D);
-    release_lock(LOCK_B);
-    release_lock(LOCK_A);
+    lm_unlock(T6_ID, LOCK_D);
+    lm_unlock(T6_ID, LOCK_B);
+    lm_unlock(T6_ID, LOCK_A);
     return NULL;
 }
 
@@ -230,15 +216,14 @@ void *worker_T6(void *arg) {
 // --- Management Functions ---
 
 void threads_init(void) {
-    for (int i = 0; i < NUM_LOCKS; i++) {
-        pthread_mutex_init(&locks[i], NULL);
-    }
+    lm_init(NUM_LOCKS);
 }
 
 void run_thread_demo(ExecMode mode) {
     current_mode = mode;
     pthread_t threads[6];
 
+    lm_init(NUM_LOCKS);
     pthread_barrier_init(&barrier, NULL, 2);
     fm_reset();
 
@@ -264,10 +249,10 @@ void run_thread_demo(ExecMode mode) {
     pthread_join(threads[3], NULL);
 
     pthread_barrier_destroy(&barrier);
+
+    printf("Deadlocks detected this run: %d\n", lm_cycle_count());
 }
 
 void threads_cleanup(void) {
-    for (int i = 0; i < NUM_LOCKS; i++) {
-        pthread_mutex_destroy(&locks[i]);
-    }
+    lm_destroy();
 }

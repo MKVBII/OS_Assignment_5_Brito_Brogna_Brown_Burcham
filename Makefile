@@ -33,6 +33,12 @@ main.o: main.c threads_locks.h file_manager.h
 threads_locks.o: threads_locks.c threads_locks.h file_manager.h
 	$(CC) $(CFLAGS) -c threads_locks.c
 
+lock_manager.o: lock_manager.c lock_manager.h
+	$(CC) $(CFLAGS) -c lock_manager.c
+
+log_stub.o: log_stub.c lock_manager.h
+	$(CC) $(CFLAGS) -c log_stub.c
+
 file_manager.o: file_manager.c file_manager.h
 	$(CC) $(CFLAGS) -c file_manager.c
 
